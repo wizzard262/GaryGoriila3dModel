@@ -34,8 +34,18 @@
 
     const controls = new OrbitControls(camera, renderer.domElement);
 
-    const light = new THREE.HemisphereLight(0xffffff, 0x444444, 1.2);
+    // Existing light
+    const light = new THREE.HemisphereLight(0xffffff, 0x444444, 2.0);
     scene.add(light);
+
+    // Strong directional light
+    const sun = new THREE.DirectionalLight(0xffffff, 2);
+    sun.position.set(5, 10, 7);
+    scene.add(sun);
+
+    // Ambient fill light
+    const ambient = new THREE.AmbientLight(0xffffff, 1.2);
+    scene.add(ambient);
 
     const loader = new GLTFLoader();
     loader.load("model.glb", (gltf) => {
