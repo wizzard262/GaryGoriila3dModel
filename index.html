@@ -131,6 +131,53 @@
     @media (prefers-color-scheme: dark) { button[aria-pressed="true"] { color: #12101a; } }
     button[hidden] { display: none; }
 
+    /* Lighting controls */
+    .lighting { display: grid; grid-template-columns: auto 1fr; gap: 20px 28px; align-items: start; }
+    @media (max-width: 640px) { .lighting { grid-template-columns: 1fr; justify-items: center; } .lighting .sliders { width: 100%; } }
+    .pad-wrap { text-align: center; }
+    .pad {
+      position: relative;
+      width: 180px;
+      height: 180px;
+      border-radius: 50%;
+      background: radial-gradient(circle, var(--accent-soft) 0%, var(--accent-soft) 18%, transparent 19%),
+                  repeating-radial-gradient(circle, transparent 0 29px, var(--border) 29px 30px),
+                  var(--bg);
+      border: 1px solid var(--border);
+      cursor: crosshair;
+      touch-action: none;
+      user-select: none;
+    }
+    .pad::before, .pad::after { content: ""; position: absolute; background: var(--border); }
+    .pad::before { left: 50%; top: 0; bottom: 0; width: 1px; }
+    .pad::after { top: 50%; left: 0; right: 0; height: 1px; }
+    .pad .label { position: absolute; font-size: 0.7rem; font-weight: 600; color: var(--muted); z-index: 1; }
+    .pad .front { bottom: 3px; left: 50%; transform: translateX(-50%); }
+    .pad .back { top: 3px; left: 50%; transform: translateX(-50%); }
+    .pad .left { left: 5px; top: 50%; transform: translateY(-50%); }
+    .pad .right { right: 5px; top: 50%; transform: translateY(-50%); }
+    .sun-dot {
+      position: absolute;
+      z-index: 2;
+      width: 22px;
+      height: 22px;
+      margin: -11px 0 0 -11px;
+      border-radius: 50%;
+      background: #ffcf3a;
+      border: 2px solid #c98a00;
+      box-shadow: 0 0 12px rgba(255, 190, 40, 0.8);
+      pointer-events: none;
+    }
+    .pad-caption { margin: 6px 0 0; }
+    .sliders { display: grid; gap: 10px; }
+    .sliders h3 { margin: 6px 0 0; font-size: 0.8rem; letter-spacing: 0.04em; text-transform: uppercase; color: var(--muted); }
+    .sliders h3:first-child { margin-top: 0; }
+    .slider { display: grid; grid-template-columns: 7.5em 1fr 3.6em; align-items: center; gap: 10px; font-size: 0.92rem; }
+    .slider input[type=range] { width: 100%; accent-color: var(--accent); }
+    .slider output { font-family: var(--mono); font-size: 0.85rem; text-align: right; color: var(--muted); }
+    .slider input[type=color] { width: 44px; height: 28px; padding: 0 2px; border: 1px solid var(--border); border-radius: 6px; background: var(--bg); }
+    .light-actions { display: flex; flex-wrap: wrap; gap: 8px; margin-top: 4px; }
+
     .footer { border-top: 1px solid var(--border); padding: 20px 0 28px; font-size: 0.9rem; color: var(--muted); }
   </style>
 </head>
@@ -163,6 +210,39 @@
         <button type="button" id="btn-spin" aria-pressed="false">Auto-rotate</button>
         <button type="button" id="btn-anim" aria-pressed="false" hidden>Pause animation</button>
         <button type="button" id="btn-reset">Reset view</button>
+      </div>
+    </section>
+
+    <section class="card card-wide" aria-labelledby="lighting-title">
+      <h2 id="lighting-title">Lighting</h2>
+      <div class="lighting">
+        <div class="pad-wrap">
+          <div class="pad" id="sun-pad" role="slider" tabindex="0" aria-label="Sun direction: drag to move the sun. Arrow keys turn it and raise or lower it">
+            <span class="label back">Back</span>
+            <span class="label front">Front</span>
+            <span class="label left">L</span>
+            <span class="label right">R</span>
+            <span class="sun-dot" id="sun-dot"></span>
+          </div>
+          <p class="pad-caption small muted">Drag the sun: round the circle to turn,<br>towards the middle to raise it overhead</p>
+        </div>
+
+        <div class="sliders">
+          <h3>Sun (directional light)</h3>
+          <label class="slider">Brightness <input type="range" id="sun-power" min="0" max="8" step="0.1"> <output for="sun-power"></output></label>
+          <label class="slider">Turn <input type="range" id="sun-turn" min="-180" max="180" step="1"> <output for="sun-turn"></output></label>
+          <label class="slider">Height <input type="range" id="sun-height" min="-30" max="90" step="1"> <output for="sun-height"></output></label>
+          <label class="slider">Colour <input type="color" id="sun-colour"> <output for="sun-colour"></output></label>
+
+          <h3>Fill</h3>
+          <label class="slider">Sky and ground <input type="range" id="sky-power" min="0" max="6" step="0.1"> <output for="sky-power"></output></label>
+          <label class="slider">Ambient <input type="range" id="ambient-power" min="0" max="4" step="0.1"> <output for="ambient-power"></output></label>
+
+          <div class="light-actions">
+            <button type="button" id="btn-helper" aria-pressed="false">Show sun direction</button>
+            <button type="button" id="btn-light-reset">Reset lighting</button>
+          </div>
+        </div>
       </div>
     </section>
 
@@ -221,12 +301,45 @@
   controls.autoRotateSpeed = 1.5;
   controls.saveState();
 
-  // Lights: sky/ground, a strong sun and an ambient fill
-  scene.add(new THREE.HemisphereLight(0xffffff, 0x444444, 2.0));
+  // Lights: sky/ground, a strong sun and an ambient fill (set from the Lighting card below)
+  const sky = new THREE.HemisphereLight(0xffffff, 0x444444, 2.0);
+  scene.add(sky);
   const sun = new THREE.DirectionalLight(0xffffff, 2);
-  sun.position.set(5, 10, 7);
-  scene.add(sun);
-  scene.add(new THREE.AmbientLight(0xffffff, 1.2));
+  scene.add(sun, sun.target);
+  const ambient = new THREE.AmbientLight(0xffffff, 1.2);
+  scene.add(ambient);
+
+  // where the sun shines from: turn = degrees round from the front (+Z), height = degrees above the horizon.
+  // The defaults match the old fixed sun at (5, 10, 7).
+  const LIGHT_DEFAULTS = { sunPower: 2, sunTurn: 36, sunHeight: 49, sunColour: '#ffffff', skyPower: 2, ambientPower: 1.2 };
+  const light = { ...LIGHT_DEFAULTS };
+  const modelCentre = new THREE.Vector3();
+  let modelRadius = 5;
+
+  // arrow from the sun towards the model, shown with "Show sun direction"
+  const sunHelper = new THREE.ArrowHelper(new THREE.Vector3(0, -1, 0), new THREE.Vector3(), 1, 0xffb000);
+  sunHelper.visible = false;
+  scene.add(sunHelper);
+
+  function applyLighting() {
+    const turn = THREE.MathUtils.degToRad(light.sunTurn);
+    const height = THREE.MathUtils.degToRad(light.sunHeight);
+    const direction = new THREE.Vector3(Math.cos(height) * Math.sin(turn), Math.sin(height), Math.cos(height) * Math.cos(turn));
+
+    sun.position.copy(modelCentre).addScaledVector(direction, modelRadius * 3);
+    sun.target.position.copy(modelCentre);
+    sun.intensity = light.sunPower;
+    sun.color.set(light.sunColour);
+    sky.intensity = light.skyPower;
+    ambient.intensity = light.ambientPower;
+
+    // the arrow points at the model but stops outside it (radius is the model's bounding sphere)
+    const length = modelRadius * 0.5;
+    sunHelper.position.copy(modelCentre).addScaledVector(direction, modelRadius * 1.5);
+    sunHelper.setDirection(direction.clone().negate());
+    sunHelper.setLength(length, length * 0.2, length * 0.1);
+    sunHelper.setColor(light.sunColour === '#ffffff' ? 0xffb000 : light.sunColour);
+  }
 
   // fill the card, and keep filling it when the window or card changes size
   function resize() {
@@ -253,6 +366,11 @@
     controls.target.copy(centre);
     controls.update();
     controls.saveState();          // Reset view comes back here
+
+    // the sun circles the model, wherever it sits
+    modelCentre.copy(centre);
+    modelRadius = radius;
+    applyLighting();
   }
 
   const clock = new THREE.Clock();
@@ -292,6 +410,74 @@
   const anim = document.getElementById('btn-anim');
   anim.addEventListener('click', () => { animationPaused = !animationPaused; toggle(anim, animationPaused); });
   document.getElementById('btn-reset').addEventListener('click', () => controls.reset());
+
+  // ---------------- Lighting card: sliders, the sun pad and the buttons
+  const inputs = {
+    sunPower: ['sun-power', v => v.toFixed(1)],
+    sunTurn: ['sun-turn', v => Math.round(v) + '°'],
+    sunHeight: ['sun-height', v => Math.round(v) + '°'],
+    sunColour: ['sun-colour', v => v],
+    skyPower: ['sky-power', v => v.toFixed(1)],
+    ambientPower: ['ambient-power', v => v.toFixed(1)],
+  };
+  const pad = document.getElementById('sun-pad');
+  const dot = document.getElementById('sun-dot');
+
+  // the dot: angle round the pad = turn (front at the bottom), distance from the middle = how low the sun is
+  function drawDot() {
+    const r = pad.clientWidth / 2;
+    const out = Math.min(1, (90 - light.sunHeight) / 90) * (r - 14);
+    const turn = THREE.MathUtils.degToRad(light.sunTurn);
+    dot.style.left = (r + Math.sin(turn) * out) + 'px';
+    dot.style.top = (r + Math.cos(turn) * out) + 'px';
+    pad.setAttribute('aria-valuetext', `turn ${Math.round(light.sunTurn)} degrees, height ${Math.round(light.sunHeight)} degrees`);
+  }
+
+  // show the current settings in the sliders, then light the scene
+  function update() {
+    for (const [key, [id, format]] of Object.entries(inputs)) {
+      const input = document.getElementById(id);
+      input.value = light[key];
+      document.querySelector(`output[for="${id}"]`).textContent = format(light[key]);
+    }
+    drawDot();
+    applyLighting();
+  }
+
+  for (const [key, [id]] of Object.entries(inputs)) {
+    document.getElementById(id).addEventListener('input', (e) => {
+      light[key] = key === 'sunColour' ? e.target.value : Number(e.target.value);
+      update();
+    });
+  }
+
+  function padMove(e) {
+    const box = pad.getBoundingClientRect();
+    const r = box.width / 2;
+    const dx = e.clientX - box.left - r, dy = e.clientY - box.top - r;
+    light.sunTurn = Math.round(THREE.MathUtils.radToDeg(Math.atan2(dx, dy)));
+    light.sunHeight = Math.round(90 * (1 - Math.min(1, Math.hypot(dx, dy) / (r - 14))));
+    update();
+  }
+  pad.addEventListener('pointerdown', (e) => { pad.setPointerCapture(e.pointerId); padMove(e); });
+  pad.addEventListener('pointermove', (e) => { if (pad.hasPointerCapture(e.pointerId)) padMove(e); });
+  pad.addEventListener('keydown', (e) => {
+    const step = e.shiftKey ? 15 : 5;
+    if (e.key === 'ArrowLeft') light.sunTurn -= step;
+    else if (e.key === 'ArrowRight') light.sunTurn += step;
+    else if (e.key === 'ArrowUp') light.sunHeight = Math.min(90, light.sunHeight + step);
+    else if (e.key === 'ArrowDown') light.sunHeight = Math.max(-30, light.sunHeight - step);
+    else return;
+    e.preventDefault();
+    light.sunTurn = ((light.sunTurn + 540) % 360) - 180;   // keep it in -180..180
+    update();
+  });
+
+  const helperButton = document.getElementById('btn-helper');
+  helperButton.addEventListener('click', () => { sunHelper.visible = !sunHelper.visible; toggle(helperButton, sunHelper.visible); });
+  document.getElementById('btn-light-reset').addEventListener('click', () => { Object.assign(light, LIGHT_DEFAULTS); update(); });
+  new ResizeObserver(drawDot).observe(pad);
+  update();
 </script>
 </body>
 </html>
